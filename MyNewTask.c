@@ -7,13 +7,16 @@ static uint8_t mCounter = 0;
 static osaTaskId_t mTaskId;
 
 /* Callback del timer */
-static void NetworkTimerCallback(void *param) {
+static void NetworkTimerCallback(void *param)
+{
     OSA_EventSet(mMyEvents, gMyTask_TimerExpired_c);
 }
 
 /* Control RGB según contador */
-static void UpdateRGBLEDs(uint8_t counter) {
-    switch(counter) {
+static void UpdateRGBLEDs(uint8_t counter)
+{
+    switch(counter)
+    {
         case 0:
             LED_TurnOnGreen();  // Verde
             LED_TurnOffRed();
@@ -39,16 +42,10 @@ static void UpdateRGBLEDs(uint8_t counter) {
     }
 }
 
-/* Envío de paquete */
-static void SendNetworkPacket(void) {
-    char packet[20];
-    snprintf(packet, sizeof(packet), "Counter: %d", mCounter);
-    // App_SendPacket(packet);  // Reemplaza con tu función real
-    PRINTF("[NET] %s\n", packet);
-}
 
 /* Tarea principal */
-static void My_Task(osaTaskParam_t arg) {
+static void My_Task(osaTaskParam_t arg)
+{
     osaEventFlags_t event;
 
     while(1)
@@ -67,7 +64,6 @@ static void My_Task(osaTaskParam_t arg) {
         }
         else if(event & gMyTask_TimerExpired_c)
         {
-            SendNetworkPacket();
             mCounter = (mCounter + 1) % 4;  // Ciclar 0-3
             UpdateRGBLEDs(mCounter);        // Actualizar LEDs
         }
@@ -99,4 +95,14 @@ void MyTask_StartNetworkReporting(void)
 void MyTask_StopNetworkReporting(void)
 {
     OSA_EventSet(mMyEvents, gMyTask_StopNetwork_c);
+}
+
+
+//Getters
+uint8_t MyTask_GetCurrentCounter(void)
+{
+    // OSA_InterruptDisable();
+    uint8_t contador = mCounter;
+    // OSA_InterruptEnable();
+    return contador;
 }

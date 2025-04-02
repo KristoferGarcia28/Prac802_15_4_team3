@@ -23,5 +23,7 @@
 void MyTask_StartNetworkReporting(void);
 void MyTask_StopNetworkReporting(void);
 void MyTask_Init(void);
+uint8_t MyTask_GetCurrentCounter(void);
+
 
 #endif /* MYNEWTASK_H_ */

@@ -27,6 +27,7 @@
 #include "MemManager.h"
 #include "TimersManager.h"
 #include "FunctionLib.h"
+#include "MyNewTask.h"
 
 #if mEnterLowPowerWhenIdle_c
   #include "PWR_Interface.h"
@@ -1078,10 +1079,10 @@ static void App_TransmitUartData(void)
     {
         /* Data is available in the SerialManager's receive buffer. Now create an
         MCPS-Data Request message containing the data. */
-        mpPacket->msgType = gMcpsDataReq_c;
-        mpPacket->msgData.dataReq.pMsdu = (uint8_t*)(&mpPacket->msgData.dataReq.pMsdu) + 
-                                          sizeof(mpPacket->msgData.dataReq.pMsdu);
-        Serial_Read(interfaceId, mpPacket->msgData.dataReq.pMsdu, count, &count);
+        mpPacket->msgType = gMcpsDataReq_c;		//
+        uint8_t data2send = 0x01;				//aqui se debe de poner el valor de contador
+        mpPacket->msgData.dataReq.pMsdu[0] = data2send;
+        mpPacket->msgData.dataReq.msduLength = MyTask_GetCurrentCounter();
         /* Create the header using coordinator information gained during 
         the scan procedure. Also use the short address we were assigned
         by the coordinator during association. */
