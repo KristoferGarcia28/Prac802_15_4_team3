@@ -1178,9 +1178,14 @@ static void App_HandleKeys
     { 
     case gKBD_EventLongSW1_c:
         OSA_EventSet(mAppEvent, gAppEvtPressedRestoreNvmBut_c);
+        break;
     case gKBD_EventLongSW2_c:
     case gKBD_EventLongSW3_c:
+    	uint8_t countuntervalue = 1;
+    	MyTask_SetCounterValue(countuntervalue);
+    	//this part change the counter to send
     case gKBD_EventLongSW4_c:
+    	MyTask_ChangeTimer();
     case gKBD_EventSW1_c:
     case gKBD_EventSW2_c:
     case gKBD_EventSW3_c:

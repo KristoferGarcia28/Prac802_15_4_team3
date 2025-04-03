@@ -6,14 +6,33 @@ static tmrTimerID_t mNetworkTimer = gTmrInvalidTimerID_c;
 static uint8_t mCounter = 0;
 static osaTaskId_t mTaskId;
 
+static uint32_t mCurrentInterval = 3000;  // Intervalo actual (ms)
+static const uint32_t mIntervals[2] = {3000, 5000};  // 3s y 5s
+static uint8_t mCurrentIntervalIndex = 0;  // Índice del intervalo actual
+
 /* Callback del timer */
 static void NetworkTimerCallback(void *param)
 {
     OSA_EventSet(mMyEvents, gMyTask_TimerExpired_c);
 }
 
+void MyTask_ChangeTimer(void)
+{
+    mCurrentIntervalIndex = (mCurrentIntervalIndex + 1) % 2;  // Alterna entre 0 y 1
+    mCurrentInterval = mIntervals[mCurrentIntervalIndex];
+
+    // Reinicia el timer con el nuevo intervalo
+    if(mNetworkTimer != gTmrInvalidTimerID_c)
+    {
+        TMR_StopTimer(mNetworkTimer);
+        TMR_StartIntervalTimer(mNetworkTimer, mCurrentInterval, NetworkTimerCallback, NULL);
+    }
+
+    Serial_Print("[CONFIG] Intervalo cambiado a: %lu ms\n", mCurrentInterval);
+}
+
 /* Control RGB según contador */
-static void UpdateRGBLEDs(uint8_t counter)
+void UpdateRGBLEDs(uint8_t counter)
 {
     switch(counter)
     {
@@ -105,4 +124,11 @@ uint8_t MyTask_GetCurrentCounter(void)
     uint8_t contador = mCounter;
     // OSA_InterruptEnable();
     return contador;
+}
+
+void MyTask_SetCounterValue(uint8_t new_value)
+{
+    /* 1. Validar y ajustar el rango */
+    new_value = new_value % 4;  // Fuerza el rango 0-3
+    mCounter = new_value;
 }

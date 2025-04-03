@@ -9,6 +9,7 @@
 #define gMyTask_StartNetwork_c    (1 << 0)
 #define gMyTask_TimerExpired_c    (1 << 1)
 #define gMyTask_StopNetwork_c     (1 << 2)
+#define gMyTask_Switch3Pressed_c  (1 << 3)
 
 /* Definiciones RGB */
 #define LED_OFF     0x00
@@ -24,6 +25,7 @@ void MyTask_StartNetworkReporting(void);
 void MyTask_StopNetworkReporting(void);
 void MyTask_Init(void);
 uint8_t MyTask_GetCurrentCounter(void);
-
-
+void MyTask_SetCounterValue(uint8_t new_value);
+void UpdateRGBLEDs(uint8_t counter);
+void MyTask_ChangeTimer(void);
 #endif /* MYNEWTASK_H_ */
