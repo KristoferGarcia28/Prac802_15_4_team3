@@ -207,6 +207,8 @@ void main_task(uint32_t param)
         Phy_Init();
         RNG_Init(); /* RNG must be initialized after the PHY is Initialized */
         MAC_Init();
+        MyTask_Init();
+
 #if mEnterLowPowerWhenIdle_c
         PWR_Init();
         PWR_DisallowDeviceToSleep();
@@ -231,7 +233,7 @@ void main_task(uint32_t param)
     }
 
     /* Call application Idle task */
-    App_Idle_Task( param );
+//    App_Idle_Task( param );
 }
 
 /*! *********************************************************************************
@@ -331,7 +333,7 @@ void App_init( void )
     MSG_InitQueue(&mMcpsNwkInputQueue);
     
     /*signal app ready*/
-    LED_StartSerialFlash(LED1);
+//    LED_StartSerialFlash(LED1);
 #if mEnterLowPowerWhenIdle_c
     if (!PWRLib_MCU_WakeupReason.Bits.DeepSleepTimeout)
     {
@@ -669,7 +671,7 @@ static void UartRxCallBack(void *pData)
     
     if( gState == stateInit )
     {
-        LED_StopFlashingAllLeds();
+//        LED_StopFlashingAllLeds();
         OSA_EventSet(mAppEvent, gAppEvtDummyEvent_c);
     }
 
@@ -791,6 +793,7 @@ static uint8_t App_HandleScanActiveConfirm(nwkMessage_t *pMsg)
                find a better candiate, the information will be replaced. */
             FLib_MemCpy(&mCoordInfo, pPanDesc, sizeof(panDescriptor_t));
             bestLinkQuality = pPanDesc->linkQuality;
+            mCoordInfo.logicalChannel = 25;  // Put my channel
             rc = errorNoError;
           }
         }      
@@ -892,7 +895,7 @@ static uint8_t App_HandleAssociateConfirm(nwkMessage_t *pMsg)
      the short address assigned to us. */
   if ( pMsg->msgData.associateCnf.status == gSuccess_c) 
   {
-
+	  MyTask_StartNetworkReporting();
 	  if( pMsg->msgData.associateCnf.assocShortAddress >= 0xFFFE)
 	  {
 	    mAddrMode = gAddrModeExtendedAddress_c;
@@ -1178,12 +1181,10 @@ static void App_HandleKeys
     { 
     case gKBD_EventLongSW1_c:
         OSA_EventSet(mAppEvent, gAppEvtPressedRestoreNvmBut_c);
-        break;
     case gKBD_EventLongSW2_c:
     case gKBD_EventLongSW3_c:
-    	uint8_t countuntervalue = 1;
-    	MyTask_SetCounterValue(countuntervalue);
-    	//this part change the counter to send
+    	uint8_t contador = 1;
+    	MyTask_SetCounterValue(contador);
     case gKBD_EventLongSW4_c:
     	MyTask_ChangeTimer();
     case gKBD_EventSW1_c:

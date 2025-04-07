@@ -1,14 +1,15 @@
 #include "MyNewTask.h"
+#include "LED.h"
 
 /* Variables */
 static osaEventId_t mMyEvents;
 static tmrTimerID_t mNetworkTimer = gTmrInvalidTimerID_c;
 static uint8_t mCounter = 0;
-static osaTaskId_t mTaskId;
+static osaTaskId_t gMyTaskHandler_ID;
 
-static uint32_t mCurrentInterval = 3000;  // Intervalo actual (ms)
-static const uint32_t mIntervals[2] = {3000, 5000};  // 3s y 5s
-static uint8_t mCurrentIntervalIndex = 0;  // Índice del intervalo actual
+static uint32_t mCurrentInterval = 1000;  // Intervalo actual (ms)
+static const uint32_t mIntervals[2] = {1000, 5000};  // 1s y 5s
+static uint8_t mCurrentIntervalIndex = 0;  // Índice para el valor del timer
 
 /* Callback del timer */
 static void NetworkTimerCallback(void *param)
@@ -26,44 +27,50 @@ void MyTask_ChangeTimer(void)
     {
         TMR_StopTimer(mNetworkTimer);
         TMR_StartIntervalTimer(mNetworkTimer, mCurrentInterval, NetworkTimerCallback, NULL);
+        UpdateRGBLEDs(mCounter);        // Actualizar LEDs
     }
 
     Serial_Print("[CONFIG] Intervalo cambiado a: %lu ms\n", mCurrentInterval);
 }
 
 /* Control RGB según contador */
-void UpdateRGBLEDs(uint8_t counter)
+extern void UpdateRGBLEDs(uint8_t counter)
 {
     switch(counter)
     {
-        case 0:
-            LED_TurnOnGreen();  // Verde
-            LED_TurnOffRed();
-            LED_TurnOffBlue();
+
+    // 3 verde, 2 rojo, 4azul
+        case 0:							//Verde
+        	Led3On();
+        	Led1Off();
+			Led2Off();
+			Led4Off();
             break;
-        case 1:
-            LED_TurnOnRed();   // Rojo
-            LED_TurnOffGreen();
-            LED_TurnOffBlue();
+        case 1:							// Rojo
+        	Led2On();
+			Led1Off();
+			Led3Off();
+			Led4Off();
             break;
-        case 2:
-            LED_TurnOnBlue();  // Azul
-            LED_TurnOffRed();
-            LED_TurnOffGreen();
+        case 2:							// Azul
+        	Led4On();
+			Led3Off();
+			Led2Off();
             break;
         case 3:
-            LED_TurnOnRed();   // Blanco (RGB)
-            LED_TurnOnGreen();
-            LED_TurnOnBlue();
+        	Led2On();
+			Led3On();
+			Led4On();
             break;
         default:
-            LED_TurnOffAll();
+        	TurnOffLeds();
+
     }
 }
 
 
 /* Tarea principal */
-static void My_Task(osaTaskParam_t arg)
+extern void My_Task(osaTaskParam_t arg)
 {
     osaEventFlags_t event;
 
@@ -94,16 +101,18 @@ static void My_Task(osaTaskParam_t arg)
                 TMR_FreeTimer(mNetworkTimer);
                 mNetworkTimer = gTmrInvalidTimerID_c;
             }
-            LED_TurnOffAll();  // Apagar todos los LEDs
+            TurnOffLeds();  // Apagar todos los LEDs
         }
     }
 }
 
+OSA_TASK_DEFINE(My_Task, gMyTaskPriority_c, 1, gMyTaskStackSize_c, FALSE );
 /* API Pública */
 void MyTask_Init(void)
 {
     mMyEvents = OSA_EventCreate(TRUE);
-    mTaskId = OSA_TaskCreate(My_Task, NULL);
+    gMyTaskHandler_ID = OSA_TaskCreate(OSA_TASK(My_Task), NULL);
+    Serial_Print("Todo bien");
 }
 
 void MyTask_StartNetworkReporting(void)
@@ -128,7 +137,6 @@ uint8_t MyTask_GetCurrentCounter(void)
 
 void MyTask_SetCounterValue(uint8_t new_value)
 {
-    /* 1. Validar y ajustar el rango */
-    new_value = new_value % 4;  // Fuerza el rango 0-3
     mCounter = new_value;
+    UpdateRGBLEDs( mCounter);
 }

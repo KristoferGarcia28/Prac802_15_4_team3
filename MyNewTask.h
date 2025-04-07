@@ -3,7 +3,10 @@
 
 #include "TimersManager.h"
 #include "LED.h"  // Asegúrate que tiene control RGB
+#include "FunctionLib.h"
 #include "fsl_os_abstraction.h"
+#include "fsl_common.h"
+#include "EmbeddedTypes.h"
 
 /* Eventos */
 #define gMyTask_StartNetwork_c    (1 << 0)
@@ -26,6 +29,9 @@ void MyTask_StopNetworkReporting(void);
 void MyTask_Init(void);
 uint8_t MyTask_GetCurrentCounter(void);
 void MyTask_SetCounterValue(uint8_t new_value);
-void UpdateRGBLEDs(uint8_t counter);
+extern void UpdateRGBLEDs(uint8_t counter);
 void MyTask_ChangeTimer(void);
+
+/* Declaración pública de la función de la tarea */
+extern void My_Task(osaTaskParam_t argument);  // 'extern' es clave aquí
 #endif /* MYNEWTASK_H_ */
