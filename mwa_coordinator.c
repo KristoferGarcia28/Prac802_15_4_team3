@@ -54,8 +54,30 @@
 /************************************************************************************
 *************************************************************************************
 * Private prototypes
+*
 *************************************************************************************
 ************************************************************************************/
+
+typedef enum
+{
+    DEVICE_TYPE_UNKNOWN = 0,
+    DEVICE_TYPE_FFD,    // Full Function Device
+    DEVICE_TYPE_RFD     // Reduced Function Device
+} device_type_t;
+
+typedef struct
+{
+    uint16_t shortAddress;
+    uint64_t extendedAddress;
+    bool rxOnWhenIdle;
+    device_type_t deviceType;
+    uint8_t counter;
+} node_info_t;
+
+
+
+/* Número máximo de nodos */
+#define MAX_ASSOCIATED_NODES 5
 
 /* Forward declarations of helper functions */
 static void    UartRxCallBack(void*);
@@ -74,6 +96,9 @@ void AppThread (uint32_t argument);
 resultType_t MLME_NWK_SapHandler (nwkMessage_t* pMsg, instanceId_t instanceId);
 resultType_t MCPS_NWK_SapHandler (mcpsToNwkMessage_t* pMsg, instanceId_t instanceId);
 extern void Mac_SetExtendedAddress(uint8_t *pAddr, instanceId_t instanceId);
+
+static node_info_t mAssociatedNodes[MAX_ASSOCIATED_NODES];
+static uint8_t mNumAssociatedNodes = 0;
 
 /************************************************************************************
 *************************************************************************************
@@ -147,6 +172,81 @@ uint8_t gState;
 * \remarks
 *
 ********************************************************************************** */
+/* Busca un nodo por dirección corta */
+static int8_t FindNodeByShortAddress(uint16_t shortAddr)
+{
+    for(uint8_t i = 0; i < mNumAssociatedNodes; i++)
+    {
+        if(mAssociatedNodes[i].shortAddress == shortAddr)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Busca un nodo por dirección extendida */
+static int8_t FindNodeByExtendedAddress(uint64_t extAddr)
+{
+    for(uint8_t i = 0; i < mNumAssociatedNodes; i++)
+    {
+        if(mAssociatedNodes[i].extendedAddress == extAddr)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Añade un nuevo nodo a la tabla */
+static bool AddNode(uint16_t shortAddr, uint64_t extAddr,bool rxOnWhenIdle, device_type_t devType)
+{
+    if(mNumAssociatedNodes >= MAX_ASSOCIATED_NODES)
+    {
+        return false; // Tabla llena
+    }
+
+    // Verificar si el nodo ya existe
+    if(FindNodeByShortAddress(shortAddr) >= 0 || FindNodeByExtendedAddress(extAddr) >= 0)
+    {
+        return false;
+    }
+
+    // Añadir nuevo nodo
+    mAssociatedNodes[mNumAssociatedNodes].shortAddress = shortAddr;
+    mAssociatedNodes[mNumAssociatedNodes].extendedAddress = extAddr;
+    mAssociatedNodes[mNumAssociatedNodes].rxOnWhenIdle = rxOnWhenIdle;
+    mAssociatedNodes[mNumAssociatedNodes].deviceType = devType;
+    mAssociatedNodes[mNumAssociatedNodes].counter = 0;
+
+    mNumAssociatedNodes++;
+    return true;
+}
+
+/* Actualiza el contador de un nodo */
+static bool UpdateNodeCounter(uint16_t shortAddr, uint8_t counter)
+{
+    int8_t idx = FindNodeByShortAddress(shortAddr);
+    if(idx < 0) {
+        return false; // Nodo no encontrado
+    }
+
+    mAssociatedNodes[idx].counter = counter;
+    return true;
+}
+
+/* Obtiene información de un nodo */
+static bool GetNodeInfo(uint16_t shortAddr, node_info_t *pInfo)
+{
+    int8_t idx = FindNodeByShortAddress(shortAddr);
+    if(idx < 0 || pInfo == NULL) {
+        return false;
+    }
+
+    *pInfo = mAssociatedNodes[idx];
+    return true;
+}
+
 void main_task(uint32_t param)
 {
     static uint8_t initialized = FALSE;
@@ -813,9 +913,7 @@ static void App_HandleMcpsInput(mcpsToNwkMessage_t *pMsgIn, uint8_t appInstance)
        copy the received data to the UART. */
 
 	  //para extraer payload
-	  char *payload = (char *)pMsgIn->msgData.dataInd.pMsdu;
-	  uint8_t counter = 0;
-	  sscanf(payload, "%d", &counter);
+	  uint8_t counter = pMsgIn->msgData.dataInd.pMsdu[0];
 
 	  // Actualizar LEDs de acuerdo al valor del contador
 	  UpdateRGBLEDs(counter);
