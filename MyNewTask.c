@@ -1,15 +1,18 @@
 #include "MyNewTask.h"
 #include "LED.h"
+#include <stdbool.h>
 
 /* Variables */
 static osaEventId_t mMyEvents;
 static tmrTimerID_t mNetworkTimer = gTmrInvalidTimerID_c;
 static uint8_t mCounter = 0;
 static osaTaskId_t gMyTaskHandler_ID;
+bool_t flag = false;
 
 static uint32_t mCurrentInterval = 1000;  // Intervalo actual (ms)
 static const uint32_t mIntervals[2] = {1000, 5000};  // 1s y 5s
 static uint8_t mCurrentIntervalIndex = 0;  // Índice para el valor del timer
+
 
 /* Callback del timer */
 static void NetworkTimerCallback(void *param)
@@ -92,6 +95,8 @@ extern void My_Task(osaTaskParam_t arg)
         {
             mCounter = (mCounter + 1) % 4;  // Ciclar 0-3
             UpdateRGBLEDs(mCounter);        // Actualizar LEDs
+            flag = true;
+
         }
         else if(event & gMyTask_StopNetwork_c)
         {
@@ -135,8 +140,22 @@ uint8_t MyTask_GetCurrentCounter(void)
     return contador;
 }
 
+bool_t MyTask_GetFlag(void)
+{
+	return flag;
+}
+
+
+
 void MyTask_SetCounterValue(uint8_t new_value)
 {
     mCounter = new_value;
     UpdateRGBLEDs( mCounter);
 }
+
+void MyTask_SetFlag(bool_t new_value)
+{
+	flag = new_value;
+}
+
+

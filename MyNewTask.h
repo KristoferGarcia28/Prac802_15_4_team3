@@ -31,6 +31,8 @@ uint8_t MyTask_GetCurrentCounter(void);
 void MyTask_SetCounterValue(uint8_t new_value);
 extern void UpdateRGBLEDs(uint8_t counter);
 void MyTask_ChangeTimer(void);
+bool_t MyTask_GetFlag(void);
+void MyTask_SetFlag(bool_t new_value);
 
 /* Declaración pública de la función de la tarea */
 extern void My_Task(osaTaskParam_t argument);  // 'extern' es clave aquí

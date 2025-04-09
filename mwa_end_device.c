@@ -140,7 +140,7 @@ static anchor_t mMcpsNwkInputQueue;
 
 static tmrTimerID_t mTimer_c = gTmrInvalidTimerID_c;
 
-static const uint64_t mExtendedAddress  = mMacExtendedAddress_c;
+static const uint64_t mExtendedAddress  = 0xFFFFFFFFFFFFFFF2;
 static instanceId_t   macInstance;
 static uint8_t        interfaceId;
 osaEventId_t          mAppEvent;
@@ -169,6 +169,10 @@ NVM_RegisterDataSet(&mAddrMode,           1,   sizeof(addrModeType_t), mAddrMode
 
 /* The current state of the applications state machine */
 uint8_t gState;
+
+uint8_t counter = 0;
+
+bool_t flagTimer = false;
 
 /************************************************************************************
 *************************************************************************************
@@ -207,7 +211,6 @@ void main_task(uint32_t param)
         Phy_Init();
         RNG_Init(); /* RNG must be initialized after the PHY is Initialized */
         MAC_Init();
-        MyTask_Init();
 
 #if mEnterLowPowerWhenIdle_c
         PWR_Init();
@@ -354,6 +357,7 @@ void App_init( void )
         }
     }
 #endif
+    MyTask_Init();
 }
 
 /*****************************************************************************
@@ -578,21 +582,7 @@ void AppThread(osaTaskParam_t argument)
             break; 
 
         case stateListen:
-            /* Transmit to coordinator data received from UART. */
-            if (ev & gAppEvtMessageFromMLME_c)
-            {  
-                if (pMsgIn)
-                {  
-                    /* Process it */
-                    rc = App_HandleMlmeInput(pMsgIn);
-                }
-            } 
-
-            if (ev & gAppEvtRxFromUart_c)
-            {      
-                /* get byte from UART */
-                App_TransmitUartData();
-            }
+			App_TransmitUartData();
 #if gNvmTestActive_d  
             if (timeoutCounter >= mDefaultValueOfTimeoutError_c)
             {
@@ -1050,17 +1040,17 @@ static uint8_t App_WaitMsg(nwkMessage_t *pMsg, uint8_t msgType)
 * in the MAC.
 ******************************************************************************/
 static void App_TransmitUartData(void)
-{   
+{
     uint16_t count;
-    
+
     /* Count bytes receive over the serial interface */
     Serial_RxBufferByteCount(interfaceId, &count);
-    
+
     if( 0 == count )
     {
         return;
     }
-    
+
     /* Limit data transfer size */
     if( count > mMaxKeysToReceive_c )
     {
@@ -1071,56 +1061,66 @@ static void App_TransmitUartData(void)
     have any effect at low UART baud rates, but serves as an
     example of how the throughput may be improved in a real-world
     application where the data rate is of concern. */
-    if( (mcPendingPackets < mDefaultValueOfMaxPendingDataPackets_c) && (mpPacket == NULL) ) 
+    if( (mcPendingPackets < mDefaultValueOfMaxPendingDataPackets_c) && (mpPacket == NULL) )
     {
-        /* If the maximum number of pending data buffes is below maximum limit 
+        /* If the maximum number of pending data buffes is below maximum limit
         and we do not have a data buffer already then allocate one. */
         mpPacket = MSG_Alloc(sizeof(nwkToMcpsMessage_t) + gMaxPHYPacketSize_c);
     }
 
     if(mpPacket != NULL)
     {
-        /* Data is available in the SerialManager's receive buffer. Now create an
-        MCPS-Data Request message containing the data. */
-        mpPacket->msgType = gMcpsDataReq_c;		//
-        uint8_t data2send = 0x01;				//aqui se debe de poner el valor de contador
-        mpPacket->msgData.dataReq.pMsdu[0] = data2send;
-        mpPacket->msgData.dataReq.msduLength = MyTask_GetCurrentCounter();
-        /* Create the header using coordinator information gained during 
-        the scan procedure. Also use the short address we were assigned
-        by the coordinator during association. */
-        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, &mCoordInfo.coordAddress, 8);
-        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, &maMyAddress, 8);
-        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, &mCoordInfo.coordPanId, 2);
-        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, &mCoordInfo.coordPanId, 2);
-        mpPacket->msgData.dataReq.dstAddrMode = mCoordInfo.coordAddrMode;
-        mpPacket->msgData.dataReq.srcAddrMode = mAddrMode;
-        mpPacket->msgData.dataReq.msduLength = count;
-        /* Request MAC level acknowledgement of the data packet */
-        mpPacket->msgData.dataReq.txOptions = gMacTxOptionsAck_c;
-        /* Give the data packet a handle. The handle is
-        returned in the MCPS-Data Confirm message. */
-        mpPacket->msgData.dataReq.msduHandle = mMsduHandle++;
-        /* Don't use security */
-        mpPacket->msgData.dataReq.securityLevel = gMacSecurityNone_c;
-        
-        /* Send the Data Request to the MCPS */
-        (void)NWK_MCPS_SapHandler(mpPacket, macInstance);
-        
-        /* Prepare for another data buffer */
-        mpPacket = NULL;
-        mcPendingPackets++;
+    	uint8_t fixedData = MyTask_GetCurrentCounter();  // Usamos constante local (no la variable global "counter")
+    	flagTimer = MyTask_GetFlag();
+    	if(flagTimer != false)
+    	{
+            /* Data is available in the SerialManager's receive buffer. Now create an
+            MCPS-Data Request message containing the data. */
+            mpPacket->msgType = gMcpsDataReq_c;		//
+            mpPacket->msgData.dataReq.pMsdu = (uint8_t*)(&mpPacket->msgData.dataReq.pMsdu) + sizeof(mpPacket->msgData.dataReq.pMsdu);
+
+    		FLib_MemCpy(mpPacket->msgData.dataReq.pMsdu, &fixedData, sizeof(fixedData));
+    		mpPacket->msgData.dataReq.msduLength = sizeof(fixedData);  // Tamaño = 1 byte
+
+            /* Create the header using coordinator information gained during
+            the scan procedure. Also use the short address we were assigned
+            by the coordinator during association. */
+            FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, &mCoordInfo.coordAddress, 8);
+            FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, &maMyAddress, 8);
+            FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, &mCoordInfo.coordPanId, 2);
+            FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, &mCoordInfo.coordPanId, 2);
+            mpPacket->msgData.dataReq.dstAddrMode = mCoordInfo.coordAddrMode;
+            mpPacket->msgData.dataReq.srcAddrMode = mAddrMode;
+            /* Request MAC level acknowledgement of the data packet */
+            mpPacket->msgData.dataReq.txOptions = gMacTxOptionsAck_c;
+            /* Give the data packet a handle. The handle is
+            returned in the MCPS-Data Confirm message. */
+            mpPacket->msgData.dataReq.msduHandle = mMsduHandle++;
+            /* Don't use security */
+            mpPacket->msgData.dataReq.securityLevel = gMacSecurityNone_c;
+
+            /* Send the Data Request to the MCPS */
+            (void)NWK_MCPS_SapHandler(mpPacket, macInstance);
+
+            /* Prepare for another data buffer */
+            mpPacket = NULL;
+            mcPendingPackets++;
+            MyTask_SetFlag(false);
+    	}
     }
-    
+
     /* If the data wasn't send over the air because there are too many pending packets,
     or new data has beed received, try to send it later   */
     Serial_RxBufferByteCount(interfaceId, &count);
-    
+
     if( count )
     {
         OSA_EventSet(mAppEvent, gAppEvtRxFromUart_c);
     }
 }
+
+
+
 
 /******************************************************************************
 * The App_ReceiveUartData() function will check if it is time to send out an
@@ -1183,12 +1183,15 @@ static void App_HandleKeys
         OSA_EventSet(mAppEvent, gAppEvtPressedRestoreNvmBut_c);
     case gKBD_EventLongSW2_c:
     case gKBD_EventLongSW3_c:
-    	uint8_t contador = 1;
-    	MyTask_SetCounterValue(contador);
-    case gKBD_EventLongSW4_c:
-    	MyTask_ChangeTimer();
+	case gKBD_EventLongSW4_c:
     case gKBD_EventSW1_c:
+    	MyTask_ChangeTimer();
+    	break;
     case gKBD_EventSW2_c:
+    	uint8_t contador = 1;
+		MyTask_SetCounterValue(contador);
+		MyTask_SetFlag(true);
+		break;
     case gKBD_EventSW3_c:
     case gKBD_EventSW4_c:
 #if gTsiSupported_d
