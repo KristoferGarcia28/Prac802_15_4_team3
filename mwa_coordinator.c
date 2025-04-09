@@ -801,23 +801,23 @@ static uint8_t App_SendAssociateResponse(nwkMessage_t *pMsgIn, uint8_t appInstan
 
     Serial_Print(interfaceId, "Sending the MLME-Associate Response message to the MAC...\n", gAllowToBlock_d);
 
-    /* Allocate a message for the MLME */
+    // Asignar mensaje MLME
     pMsg = MSG_AllocType(mlmeMessage_t);
     if (pMsg == NULL)
     {
         Serial_Print(interfaceId, "Message allocation failed!\n", gAllowToBlock_d);
         return errorAllocFailed;
     }
-    /* This is a MLME-ASSOCIATE.res command */
+
     pMsg->msgType = gMlmeAssociateRes_c;
-    /* Create the Associate response message data. */
     pAssocRes = &pMsg->msgData.associateRes;
 
-    // Obtener extAddr y device type
+    // Obtener dirección extendida y capability info
     uint64_t extAddr = 0;
     FLib_MemCpy(&extAddr, &pMsgIn->msgData.associateInd.deviceAddress, 8);
     uint8_t capInfo = pMsgIn->msgData.associateInd.capabilityInfo;
 
+    // Interpretar RxOnWhenIdle y DeviceType desde capabilityInfo
     bool rxOnWhenIdle = (capInfo & 0x08) ? true : false; // bit 3
     device_type_t devType = (capInfo & 0x02) ? DEVICE_TYPE_FFD : DEVICE_TYPE_RFD; // bit 1
 
@@ -831,20 +831,20 @@ static uint8_t App_SendAssociateResponse(nwkMessage_t *pMsgIn, uint8_t appInstan
         assignedShortAddr = mAssociatedNodes[idx].shortAddress;
 
         // Imprimir datos directamente desde la estructura
-        Serial_Print(interfaceId, "== Nodo ya registrado ==\n", gAllowToBlock_d);
+        Serial_Print(interfaceId, "== Nodo ya registrado ==\r\n", gAllowToBlock_d);
         Serial_Print(interfaceId, "Short Address: 0x", gAllowToBlock_d);
         Serial_PrintHex(interfaceId, (uint8_t *)&mAssociatedNodes[idx].shortAddress, 2, gPrtHexNoFormat_c);
-        Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+        Serial_Print(interfaceId, "\r\n", gAllowToBlock_d);
 
         Serial_Print(interfaceId, "Extended Address: 0x", gAllowToBlock_d);
         Serial_PrintHex(interfaceId, (uint8_t *)&mAssociatedNodes[idx].extendedAddress, 8, gPrtHexNoFormat_c);
-        Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+        Serial_Print(interfaceId, "\r\n", gAllowToBlock_d);
 
         Serial_Print(interfaceId, "RxOnWhenIdle: ", gAllowToBlock_d);
-        Serial_Print(interfaceId, mAssociatedNodes[idx].rxOnWhenIdle ? "true\n" : "false\n", gAllowToBlock_d);
+        Serial_Print(interfaceId, mAssociatedNodes[idx].rxOnWhenIdle ? "true\r\n" : "false\r\n", gAllowToBlock_d);
 
         Serial_Print(interfaceId, "DeviceType: ", gAllowToBlock_d);
-        Serial_Print(interfaceId, (mAssociatedNodes[idx].deviceType == DEVICE_TYPE_FFD) ? "FFD\n" : "RFD\n", gAllowToBlock_d);
+        Serial_Print(interfaceId, (mAssociatedNodes[idx].deviceType == DEVICE_TYPE_FFD) ? "FFD\r\n" : "RFD\r\n", gAllowToBlock_d);
     }
     else
     {
@@ -859,38 +859,41 @@ static uint8_t App_SendAssociateResponse(nwkMessage_t *pMsgIn, uint8_t appInstan
             // Imprimir datos desde la estructura del nuevo nodo
             node_info_t *newNode = &mAssociatedNodes[mNumAssociatedNodes - 1];
 
-            Serial_Print(interfaceId, "== Nodo nuevo registrado ==\n", gAllowToBlock_d);
+            Serial_Print(interfaceId, "== Nodo nuevo registrado ==\r\n", gAllowToBlock_d);
             Serial_Print(interfaceId, "Short Address: 0x", gAllowToBlock_d);
             Serial_PrintHex(interfaceId, (uint8_t *)&newNode->shortAddress, 2, gPrtHexNoFormat_c);
-            Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+            Serial_Print(interfaceId, "\r\n", gAllowToBlock_d);
 
             Serial_Print(interfaceId, "Extended Address: 0x", gAllowToBlock_d);
             Serial_PrintHex(interfaceId, (uint8_t *)&newNode->extendedAddress, 8, gPrtHexNoFormat_c);
-            Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+            Serial_Print(interfaceId, "\r\n", gAllowToBlock_d);
 
             Serial_Print(interfaceId, "RxOnWhenIdle: ", gAllowToBlock_d);
-            Serial_Print(interfaceId, newNode->rxOnWhenIdle ? "true\n" : "false\n", gAllowToBlock_d);
+            Serial_Print(interfaceId, newNode->rxOnWhenIdle ? "true\r\n" : "false\r\n", gAllowToBlock_d);
 
             Serial_Print(interfaceId, "DeviceType: ", gAllowToBlock_d);
-            Serial_Print(interfaceId, (newNode->deviceType == DEVICE_TYPE_FFD) ? "FFD\n" : "RFD\n", gAllowToBlock_d);
+            Serial_Print(interfaceId, (newNode->deviceType == DEVICE_TYPE_FFD) ? "FFD\r\n" : "RFD\r\n", gAllowToBlock_d);
         }
         else
         {
-            // Error: tabla llena
-        	Serial_Print(interfaceId,"Error\n\r", gAllowToBlock_d);
+            // Error: tabla llena o conflicto
+            pAssocRes->assocShortAddress = 0xFFFE;
+            pAssocRes->status = gPanAtCapacity_c;
+            pAssocRes->securityLevel = gMacSecurityNone_c;
+
+            NWK_MLME_SapHandler(pMsg, macInstance);
+            Serial_Print(interfaceId, "(Tabla llena o nodo duplicado) Error\n", gAllowToBlock_d);
             return errorInvalidParameter;
         }
     }
 
+    // Construir respuesta de asociación
     pAssocRes->assocShortAddress = assignedShortAddr;
-    /* Get the 64 bit address of the device requesting association. */
     FLib_MemCpy(&pAssocRes->deviceAddress, &extAddr, 8);
-    /* Association granted. May also be gPanAtCapacity_c or gPanAccessDenied_c. */
     pAssocRes->status = gSuccess_c;
-    /* Do not use security */
     pAssocRes->securityLevel = gMacSecurityNone_c;
 
-    /* Send the Associate Response to the MLME. */
+    // Enviar respuesta al MLME
     if (NWK_MLME_SapHandler(pMsg, macInstance) == gSuccess_c)
     {
         Serial_Print(interfaceId, "Associate response sent successfully\n", gAllowToBlock_d);
