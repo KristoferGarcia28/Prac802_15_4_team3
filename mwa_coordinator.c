@@ -829,6 +829,22 @@ static uint8_t App_SendAssociateResponse(nwkMessage_t *pMsgIn, uint8_t appInstan
     {
         // Nodo ya registrado
         assignedShortAddr = mAssociatedNodes[idx].shortAddress;
+
+        // Imprimir datos directamente desde la estructura
+        Serial_Print(interfaceId, "== Nodo ya registrado ==\n", gAllowToBlock_d);
+        Serial_Print(interfaceId, "Short Address: 0x", gAllowToBlock_d);
+        Serial_PrintHex(interfaceId, (uint8_t *)&mAssociatedNodes[idx].shortAddress, 2, gPrtHexNoFormat_c);
+        Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+
+        Serial_Print(interfaceId, "Extended Address: 0x", gAllowToBlock_d);
+        Serial_PrintHex(interfaceId, (uint8_t *)&mAssociatedNodes[idx].extendedAddress, 8, gPrtHexNoFormat_c);
+        Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+
+        Serial_Print(interfaceId, "RxOnWhenIdle: ", gAllowToBlock_d);
+        Serial_Print(interfaceId, mAssociatedNodes[idx].rxOnWhenIdle ? "true\n" : "false\n", gAllowToBlock_d);
+
+        Serial_Print(interfaceId, "DeviceType: ", gAllowToBlock_d);
+        Serial_Print(interfaceId, (mAssociatedNodes[idx].deviceType == DEVICE_TYPE_FFD) ? "FFD\n" : "RFD\n", gAllowToBlock_d);
     }
     else
     {
@@ -839,11 +855,29 @@ static uint8_t App_SendAssociateResponse(nwkMessage_t *pMsgIn, uint8_t appInstan
         if (AddNode(newShortAddr, extAddr, rxOnWhenIdle, devType))
         {
             assignedShortAddr = newShortAddr;
+
+            // Imprimir datos desde la estructura del nuevo nodo
+            node_info_t *newNode = &mAssociatedNodes[mNumAssociatedNodes - 1];
+
+            Serial_Print(interfaceId, "== Nodo nuevo registrado ==\n", gAllowToBlock_d);
+            Serial_Print(interfaceId, "Short Address: 0x", gAllowToBlock_d);
+            Serial_PrintHex(interfaceId, (uint8_t *)&newNode->shortAddress, 2, gPrtHexNoFormat_c);
+            Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+
+            Serial_Print(interfaceId, "Extended Address: 0x", gAllowToBlock_d);
+            Serial_PrintHex(interfaceId, (uint8_t *)&newNode->extendedAddress, 8, gPrtHexNoFormat_c);
+            Serial_Print(interfaceId, "\n", gAllowToBlock_d);
+
+            Serial_Print(interfaceId, "RxOnWhenIdle: ", gAllowToBlock_d);
+            Serial_Print(interfaceId, newNode->rxOnWhenIdle ? "true\n" : "false\n", gAllowToBlock_d);
+
+            Serial_Print(interfaceId, "DeviceType: ", gAllowToBlock_d);
+            Serial_Print(interfaceId, (newNode->deviceType == DEVICE_TYPE_FFD) ? "FFD\n" : "RFD\n", gAllowToBlock_d);
         }
         else
         {
             // Error: tabla llena
-            Serial_Print(interfaceId, "Error\n");
+        	Serial_Print(interfaceId,"Error\n\r", gAllowToBlock_d);
             return errorInvalidParameter;
         }
     }
@@ -866,7 +900,39 @@ static uint8_t App_SendAssociateResponse(nwkMessage_t *pMsgIn, uint8_t appInstan
     {
         Serial_Print(interfaceId, "Associate response failed\n", gAllowToBlock_d);
         return errorInvalidParameter;
-    }
+    }
+}
+
+/******************************************************************************
+* The App_HandleMlmeInput(nwkMessage_t *pMsg) function will handle various
+* messages from the MLME, e.g. (Dis)Associate Indication.
+*
+* The function may return either of the following values:
+*   errorNoError:   The message was processed.
+*   errorNoMessage: The message pointer is NULL.
+******************************************************************************/
+static uint8_t App_HandleMlmeInput(nwkMessage_t *pMsg, uint8_t appInstance)
+{
+  if(pMsg == NULL)
+    return errorNoMessage;
+
+  /* Handle the incoming message. The type determines the sort of processing.*/
+  switch(pMsg->msgType) {
+  case gMlmeAssociateInd_c:
+    Serial_Print(interfaceId,"Received an MLME-Associate Indication from the MAC\n\r", gAllowToBlock_d);
+    /* A device sent us an Associate Request. We must send back a response.  */
+    return App_SendAssociateResponse(pMsg, appInstance);
+
+  case gMlmeCommStatusInd_c:
+    /* Sent by the MLME after the Association Response has been transmitted. */
+    Serial_Print(interfaceId,"Received an MLME-Comm-Status Indication from the MAC\n\r", gAllowToBlock_d);
+
+    break;
+
+  default:
+    break;
+  }
+  return errorNoError;
 }
 
 /******************************************************************************
@@ -896,6 +962,7 @@ static void App_HandleMcpsInput(mcpsToNwkMessage_t *pMsgIn, uint8_t appInstance)
 	  // Actualizar LEDs de acuerdo al valor del contador
 	  UpdateRGBLEDs(counter);
 
+	  /*
 	  // Imprimir información en la terminal
 	  Serial_Print(interfaceId, "Counter: ", gAllowToBlock_d);
 	  Serial_PrintDec(interfaceId, counter);  // Imprime el número directamente
@@ -911,6 +978,7 @@ static void App_HandleMcpsInput(mcpsToNwkMessage_t *pMsgIn, uint8_t appInstance)
       Serial_Print(interfaceId, "Timer updated\n\r", gAllowToBlock_d);
 
     Serial_SyncWrite( interfaceId,pMsgIn->msgData.dataInd.pMsdu, pMsgIn->msgData.dataInd.msduLength );
+    */
     break;
     
   default:
